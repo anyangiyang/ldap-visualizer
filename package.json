@@ -1,0 +1,16 @@
+{
+  "name": "ldap-visualizer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Static LDAP search filter parser, analyzer, and Mermaid visualizer.",
+  "scripts": {
+    "test": "node tests/run-tests.js"
+  },
+  "keywords": [
+    "ldap",
+    "rfc4515",
+    "static-analysis",
+    "mermaid"
+  ],
+  "license": "MIT"
+}

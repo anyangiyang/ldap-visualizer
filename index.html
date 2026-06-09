@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LDAP Query Visualizer</title>
+    <link rel="stylesheet" href="styles/app.css?v=0.1.0" />
+  </head>
+  <body>
+    <main class="workspace">
+      <aside class="left-rail" aria-label="LDAP filter input">
+        <header class="app-header">
+          <h1>LDAP Query Visualizer</h1>
+        </header>
+
+        <section class="tool-panel query-panel" aria-labelledby="queryTitle">
+          <div class="panel-heading">
+            <h2 id="queryTitle">LDAP Filter</h2>
+            <select id="sampleSelect" aria-label="Sample LDAP filters"></select>
+          </div>
+          <textarea id="queryInput" spellcheck="false"></textarea>
+          <div class="query-actions">
+            <button type="button" id="analyzeButton">Analyze</button>
+            <button type="button" id="resetButton" class="secondary">Reset sample</button>
+          </div>
+          <div class="parse-error" id="parseError" hidden></div>
+          <div class="status-strip filter-status" aria-live="polite">
+            <span class="status-pill danger" id="dangerCount">0 danger</span>
+            <span class="status-pill warning" id="warningCount">0 warning</span>
+            <span class="status-pill info" id="infoCount">0 info</span>
+          </div>
+        </section>
+      </aside>
+
+      <section class="results-stack" aria-label="Analysis results">
+        <section class="tool-panel ast-panel" aria-labelledby="astGraphTitle">
+          <div class="panel-heading">
+            <div>
+              <h2 id="astGraphTitle">AST Graph</h2>
+              <span id="nodeCount" class="muted">0 nodes</span>
+            </div>
+            <div class="panel-actions">
+              <button type="button" id="toggleAstRawButton" class="secondary" aria-expanded="false">Show Raw</button>
+              <button type="button" id="copyAstButton" class="secondary">Copy Raw</button>
+            </div>
+          </div>
+          <div id="graphTree" class="graph-tree"></div>
+          <div id="astRawDrawer" class="raw-drawer" hidden>
+            <pre id="astOutput" class="code-output"></pre>
+          </div>
+        </section>
+
+        <section class="tool-panel mermaid-panel" aria-labelledby="mermaidGraphTitle">
+          <div class="panel-heading">
+            <h2 id="mermaidGraphTitle">Mermaid Graph</h2>
+            <div class="panel-actions">
+              <button type="button" id="toggleMermaidRawButton" class="secondary" aria-expanded="false">Show Raw</button>
+              <button type="button" id="copyMermaidButton" class="secondary">Copy Raw</button>
+            </div>
+          </div>
+          <div id="mermaidRender" class="mermaid-render" hidden></div>
+          <div id="mermaidFallback" class="empty-state">Mermaid renderer is loading. Raw source is available.</div>
+          <div id="mermaidRawDrawer" class="raw-drawer" hidden>
+            <pre id="mermaidOutput" class="code-output"></pre>
+          </div>
+        </section>
+
+        <section class="tool-panel diagnostics-panel" aria-labelledby="diagnosticsTitle">
+          <div class="panel-heading">
+            <h2 id="diagnosticsTitle">Diagnostics</h2>
+          </div>
+          <div id="diagnosticsList" class="diagnostics-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"
+      async
+      onload="window.dispatchEvent(new Event('mermaid-ready'))"
+    ></script>
+    <script src="src/ldap-query-core.js?v=0.1.0"></script>
+    <script src="src/app.js?v=0.1.0"></script>
+  </body>
+</html>
