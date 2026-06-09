@@ -41,6 +41,10 @@ const extensible = parseOk("(cn:caseExactMatch:=Alice Smith)");
 assert.equal(extensible.type, "extensible");
 assert.equal(extensible.matchingRule, "caseExactMatch");
 
+const oidExtensible = parseOk("(groupType:1.2.840.113556.1.4.803:=2147483648)");
+assert.equal(oidExtensible.type, "extensible");
+assert.equal(oidExtensible.matchingRule, "1.2.840.113556.1.4.803");
+
 const escaped = parseOk("(cn=Alice \\28Engineering\\29)");
 assert.equal(escaped.value, "Alice (Engineering)");
 
@@ -58,9 +62,19 @@ assert.equal(hasRule(wildcardDiagnostics, "contains-wildcard"), true);
 const sensitiveDiagnostics = core.analyzeFilter(parseOk("(!(userPassword=*))"));
 assert.equal(hasRule(sensitiveDiagnostics, "sensitive-attribute"), true);
 
+const oidDiagnostics = core.analyzeFilter(parseOk("(groupType:1.2.840.113556.1.4.803:=2147483648)"));
+assert.equal(hasRule(oidDiagnostics, "known-matching-rule"), true);
+
+const unknownOidDiagnostics = core.analyzeFilter(parseOk("(cn:1.2.3.4.5:=alice)"));
+assert.equal(hasRule(unknownOidDiagnostics, "unknown-matching-rule-oid"), true);
+
 const duplicateDiagnostics = core.analyzeFilter(parseOk("(&(uid=alice)(uid=alice)(uid=bob))"));
 assert.equal(hasRule(duplicateDiagnostics, "duplicate-condition"), true);
 assert.equal(hasRule(duplicateDiagnostics, "conflicting-equality"), true);
+
+assert.equal(core.samples.some((sample) => sample.name.startsWith("[Good]")), true);
+assert.equal(core.samples.some((sample) => sample.name.startsWith("[Risky]")), true);
+assert.equal(core.samples.some((sample) => sample.name.startsWith("[OID]")), true);
 
 const mermaid = core.renderMermaid(nested, core.analyzeFilter(nested));
 assert.match(mermaid, /^graph TD/);

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>LDAP Query Visualizer</title>
-    <link rel="stylesheet" href="styles/app.css?v=0.1.0" />
+    <link rel="stylesheet" href="styles/app.css?v=0.1.1" />
   </head>
   <body>
     <main class="workspace">
@@ -19,6 +19,7 @@
             <select id="sampleSelect" aria-label="Sample LDAP filters"></select>
           </div>
           <textarea id="queryInput" spellcheck="false"></textarea>
+          <div id="sampleNote" class="sample-note"></div>
           <div class="query-actions">
             <button type="button" id="analyzeButton">Analyze</button>
             <button type="button" id="resetButton" class="secondary">Reset sample</button>
@@ -79,7 +80,7 @@
       async
       onload="window.dispatchEvent(new Event('mermaid-ready'))"
     ></script>
-    <script src="src/ldap-query-core.js?v=0.1.0"></script>
-    <script src="src/app.js?v=0.1.0"></script>
+    <script src="src/ldap-query-core.js?v=0.1.1"></script>
+    <script src="src/app.js?v=0.1.1"></script>
   </body>
 </html>

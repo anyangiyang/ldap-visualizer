@@ -42,6 +42,65 @@
     ou: true,
   };
 
+  var MATCHING_RULES = {
+    caseignorematch: {
+      name: "caseIgnoreMatch",
+      oid: "2.5.13.2",
+      source: "RFC 4517",
+      summary: "Case-insensitive equality matching for Directory String values.",
+      severity: "info",
+    },
+    "2.5.13.2": {
+      name: "caseIgnoreMatch",
+      oid: "2.5.13.2",
+      source: "RFC 4517",
+      summary: "Case-insensitive equality matching for Directory String values.",
+      severity: "info",
+    },
+    caseexactmatch: {
+      name: "caseExactMatch",
+      oid: "2.5.13.5",
+      source: "RFC 4517",
+      summary: "Case-sensitive equality matching for Directory String values.",
+      severity: "info",
+    },
+    "2.5.13.5": {
+      name: "caseExactMatch",
+      oid: "2.5.13.5",
+      source: "RFC 4517",
+      summary: "Case-sensitive equality matching for Directory String values.",
+      severity: "info",
+    },
+    "1.2.840.113556.1.4.803": {
+      name: "LDAP_MATCHING_RULE_BIT_AND",
+      oid: "1.2.840.113556.1.4.803",
+      source: "Microsoft AD",
+      summary: "Active Directory bitwise AND matching rule, often used with flag attributes such as groupType or userAccountControl.",
+      severity: "info",
+    },
+    "1.2.840.113556.1.4.804": {
+      name: "LDAP_MATCHING_RULE_BIT_OR",
+      oid: "1.2.840.113556.1.4.804",
+      source: "Microsoft AD",
+      summary: "Active Directory bitwise OR matching rule, often used with flag attributes.",
+      severity: "info",
+    },
+    "1.2.840.113556.1.4.1941": {
+      name: "LDAP_MATCHING_RULE_IN_CHAIN",
+      oid: "1.2.840.113556.1.4.1941",
+      source: "Microsoft AD",
+      summary: "Active Directory transitive chain matching rule for recursive DN-linked relationships such as nested group membership.",
+      severity: "warning",
+    },
+    "1.2.840.113556.1.4.2253": {
+      name: "LDAP_MATCHING_RULE_DN_WITH_DATA",
+      oid: "1.2.840.113556.1.4.2253",
+      source: "Microsoft AD",
+      summary: "Active Directory DN-with-data matching rule.",
+      severity: "info",
+    },
+  };
+
   function createParseError(code, message, offset) {
     return {
       code: code,
@@ -686,6 +745,25 @@
       return;
     }
 
+    var matchingRule = node.matchingRule;
+
+    if (!matchingRule) {
+      diagnostics.push(makeDiagnostic("extensible-match", "info", "Extensible match", "Extensible matches depend on server-supported matching rules and schema behavior.", node));
+      return;
+    }
+
+    var rule = MATCHING_RULES[matchingRule.toLowerCase()];
+
+    if (rule) {
+      diagnostics.push(makeDiagnostic("known-matching-rule", rule.severity, rule.name, rule.summary + " Source: " + rule.source + ", OID: " + rule.oid + ".", node));
+      return;
+    }
+
+    if (/^\d+(?:\.\d+)+$/.test(matchingRule)) {
+      diagnostics.push(makeDiagnostic("unknown-matching-rule-oid", "warning", "Unknown matching rule OID", "This extensible match uses an OID that is not in the built-in reference list. Confirm server support and expected semantics.", node));
+      return;
+    }
+
     diagnostics.push(makeDiagnostic("extensible-match", "info", "Extensible match", "Extensible matches depend on server-supported matching rules and schema behavior.", node));
   }
 
@@ -950,32 +1028,59 @@
 
   var SAMPLE_FILTERS = [
     {
-      name: "AD admin lookup",
-      filter: "(&(|(objectClass=user)(objectClass=person))(uid=*admin*)(memberOf=CN=Domain Admins,OU=Groups,DC=example,DC=com)(!(userPassword=*)))",
-    },
-    {
-      name: "Narrow user lookup",
+      name: "[Good] Narrow user lookup",
+      description: "Scoped equality predicates with objectClass, uid, and mail. This is the kind of filter that stays easy to review.",
       filter: "(&(objectClass=person)(uid=alice)(mail=alice@example.com))",
     },
     {
-      name: "Broad objectClass",
+      name: "[Good] Escaped literal characters",
+      description: "Shows RFC 4515 escaping for literal parentheses in an assertion value.",
+      filter: "(cn=Alice \\28Engineering\\29)",
+    },
+    {
+      name: "[Risky] Broad objectClass",
+      description: "Presence-only root filters can match a very large portion of a directory.",
       filter: "(objectClass=*)",
     },
     {
-      name: "Leading wildcard",
+      name: "[Risky] Leading wildcard",
+      description: "Leading and contains wildcards are often expensive because indexes cannot use a clear prefix.",
       filter: "(&(objectClass=user)(cn=*smith)(mail=*@example.com))",
     },
     {
-      name: "Duplicate and conflict",
+      name: "[Risky] Sensitive admin lookup",
+      description: "Combines contains wildcard, privileged group membership, and password-bearing attribute checks.",
+      filter: "(&(|(objectClass=user)(objectClass=person))(uid=*admin*)(memberOf=CN=Domain Admins,OU=Groups,DC=example,DC=com)(!(userPassword=*)))",
+    },
+    {
+      name: "[Risky] Duplicate and conflict",
+      description: "Demonstrates repeated and conflicting equality checks inside one AND branch.",
       filter: "(&(uid=alice)(uid=alice)(uid=bob))",
     },
     {
-      name: "Extensible match",
+      name: "[OID] RFC caseExactMatch",
+      description: "Uses a named matching rule from RFC 4517. The same rule is also known by OID 2.5.13.5.",
       filter: "(&(objectClass=person)(cn:caseExactMatch:=Alice Smith))",
     },
     {
-      name: "Escaped characters",
-      filter: "(cn=Alice \\28Engineering\\29)",
+      name: "[OID] RFC caseIgnoreMatch OID",
+      description: "Uses the RFC 4517 OID form for caseIgnoreMatch, which is useful when a filter uses numeric matching rules.",
+      filter: "(cn:2.5.13.2:=alice smith)",
+    },
+    {
+      name: "[OID] AD bitwise AND",
+      description: "Active Directory bitwise matching rule. This example checks the security-enabled groupType flag.",
+      filter: "(&(objectCategory=group)(groupType:1.2.840.113556.1.4.803:=2147483648))",
+    },
+    {
+      name: "[OID] AD nested group chain",
+      description: "Active Directory recursive membership matching rule. Powerful, but can be expensive without a narrow search base.",
+      filter: "(&(objectClass=user)(memberOf:1.2.840.113556.1.4.1941:=CN=Admins,OU=Groups,DC=example,DC=com))",
+    },
+    {
+      name: "[OID] Unknown matching rule",
+      description: "Shows how an unrecognized numeric matching rule OID is parsed and flagged for manual review.",
+      filter: "(cn:1.2.3.4.5:=alice)",
     },
   ];
 

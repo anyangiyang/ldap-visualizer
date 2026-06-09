@@ -217,6 +217,18 @@ h2 {
   background: rgba(20, 198, 203, 0.35);
 }
 
+.sample-note {
+  margin: -4px 16px 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: #08090b;
+  color: var(--ink-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
 .query-panel textarea:focus,
 button:focus-visible,
 select:focus-visible {

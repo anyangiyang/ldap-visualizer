@@ -11,6 +11,7 @@
 
   function init() {
     elements.sampleSelect = document.getElementById("sampleSelect");
+    elements.sampleNote = document.getElementById("sampleNote");
     elements.queryInput = document.getElementById("queryInput");
     elements.analyzeButton = document.getElementById("analyzeButton");
     elements.resetButton = document.getElementById("resetButton");
@@ -34,6 +35,7 @@
 
     populateSamples();
     elements.queryInput.value = core.samples[0].filter;
+    updateSampleNote();
     bindEvents();
     analyze();
   }
@@ -53,10 +55,12 @@
     elements.resetButton.addEventListener("click", function () {
       var sample = core.samples[Number(elements.sampleSelect.value)];
       elements.queryInput.value = sample.filter;
+      updateSampleNote();
       analyze();
     });
     elements.sampleSelect.addEventListener("change", function () {
       elements.queryInput.value = core.samples[Number(elements.sampleSelect.value)].filter;
+      updateSampleNote();
       analyze();
     });
     elements.toggleAstRawButton.addEventListener("click", function () {
@@ -98,6 +102,11 @@
     renderMermaidPreview();
     updateCounts(diagnostics);
     elements.nodeCount.textContent = countNodes(parsed.ast) + " nodes";
+  }
+
+  function updateSampleNote() {
+    var sample = core.samples[Number(elements.sampleSelect.value)];
+    elements.sampleNote.textContent = sample && sample.description ? sample.description : "";
   }
 
   function renderParseError(error) {
