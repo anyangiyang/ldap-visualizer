@@ -316,6 +316,10 @@
   }
 
   function labelNode(node) {
+    if (core.formatNodeLabel) {
+      return core.formatNodeLabel(node);
+    }
+
     if (node.type === "and") {
       return "AND";
     }

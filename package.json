@@ -1,6 +1,6 @@
 {
   "name": "ldap-visualizer",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "private": true,
   "description": "Static LDAP search filter parser, analyzer, and Mermaid visualizer.",
   "scripts": {

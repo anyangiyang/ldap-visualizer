@@ -101,6 +101,25 @@
     },
   };
 
+  var BITWISE_FLAG_MEANINGS = {
+    grouptype: {
+      "2147483648": "SECURITY_ENABLED",
+      "-2147483648": "SECURITY_ENABLED",
+      "2": "GLOBAL_GROUP",
+      "4": "DOMAIN_LOCAL_GROUP",
+      "8": "UNIVERSAL_GROUP",
+    },
+    useraccountcontrol: {
+      "2": "ACCOUNTDISABLE",
+      "16": "LOCKOUT",
+      "32": "PASSWD_NOTREQD",
+      "512": "NORMAL_ACCOUNT",
+      "65536": "DONT_EXPIRE_PASSWORD",
+      "262144": "SMARTCARD_REQUIRED",
+      "524288": "TRUSTED_FOR_DELEGATION",
+    },
+  };
+
   function createParseError(code, message, offset) {
     return {
       code: code,
@@ -752,10 +771,10 @@
       return;
     }
 
-    var rule = MATCHING_RULES[matchingRule.toLowerCase()];
+    var rule = getMatchingRule(matchingRule);
 
     if (rule) {
-      diagnostics.push(makeDiagnostic("known-matching-rule", rule.severity, rule.name, rule.summary + " Source: " + rule.source + ", OID: " + rule.oid + ".", node));
+      diagnostics.push(makeDiagnostic("known-matching-rule", rule.severity, rule.name, describeExtensibleMeaning(node, 96) + ". " + rule.summary + " Source: " + rule.source + ", OID: " + rule.oid + ".", node));
       return;
     }
 
@@ -765,6 +784,47 @@
     }
 
     diagnostics.push(makeDiagnostic("extensible-match", "info", "Extensible match", "Extensible matches depend on server-supported matching rules and schema behavior.", node));
+  }
+
+  function getMatchingRule(matchingRule) {
+    return MATCHING_RULES[String(matchingRule || "").toLowerCase()] || null;
+  }
+
+  function getFlagMeaning(attribute, value) {
+    var meanings = BITWISE_FLAG_MEANINGS[normalizeAttribute(attribute)];
+
+    if (!meanings) {
+      return null;
+    }
+
+    return meanings[String(value)] || null;
+  }
+
+  function describeExtensibleMeaning(node, maxValueLength) {
+    var rule = getMatchingRule(node.matchingRule);
+    var attribute = node.attribute || "value";
+    var value = truncate(node.value, maxValueLength || 48);
+
+    if (!rule) {
+      return attribute + " matches " + value + " using OID " + (node.matchingRule || "server default");
+    }
+
+    if (rule.name === "LDAP_MATCHING_RULE_BIT_AND" || rule.name === "LDAP_MATCHING_RULE_BIT_OR") {
+      var flagMeaning = getFlagMeaning(attribute, node.value);
+      var operator = rule.name === "LDAP_MATCHING_RULE_BIT_AND" ? "bitwise AND" : "bitwise OR";
+      var flagLabel = flagMeaning ? flagMeaning + " (" + value + ")" : value;
+      return attribute + " " + operator + " " + flagLabel;
+    }
+
+    if (rule.name === "LDAP_MATCHING_RULE_IN_CHAIN") {
+      return attribute + " recursively contains " + value;
+    }
+
+    if (rule.name === "LDAP_MATCHING_RULE_DN_WITH_DATA") {
+      return attribute + " DN-with-data matches " + value;
+    }
+
+    return attribute + " " + rule.name + " " + value;
   }
 
   function addAndSiblingDiagnostics(diagnostics, ast) {
@@ -989,10 +1049,7 @@
     }
 
     if (node.type === "extensible") {
-      var left = node.attribute || "";
-      left += node.dnAttributes ? ":dn" : "";
-      left += node.matchingRule ? ":" + node.matchingRule : "";
-      return left + " := " + truncate(node.value, 48);
+      return describeExtensibleMeaning(node, 48);
     }
 
     return node.type;
@@ -1038,6 +1095,11 @@
       filter: "(cn=Alice \\28Engineering\\29)",
     },
     {
+      name: "[Good] Nested department lookup",
+      description: "A more complex but still reviewable filter: bounded object classes, explicit mail, and a small OR branch.",
+      filter: "(&(|(objectClass=person)(objectClass=inetOrgPerson))(mail=alice@example.com)(!(accountStatus=disabled))(|(departmentNumber=ENG)(departmentNumber=SEC)))",
+    },
+    {
       name: "[Risky] Broad objectClass",
       description: "Presence-only root filters can match a very large portion of a directory.",
       filter: "(objectClass=*)",
@@ -1058,6 +1120,16 @@
       filter: "(&(uid=alice)(uid=alice)(uid=bob))",
     },
     {
+      name: "[Risky] Wide OR with wildcards",
+      description: "A broad OR branch with presence and contains wildcard checks. Useful for seeing complexity and wildcard findings.",
+      filter: "(|(cn=*admin*)(mail=*@*)(uid=*)(sn=*)(givenName=*)(displayName=*test*))",
+    },
+    {
+      name: "[Risky] Complex service account hunt",
+      description: "A realistic AD-style service account search with SPN presence, wildcard naming, and a sensitive attribute.",
+      filter: "(&(objectCategory=person)(objectClass=user)(servicePrincipalName=*)(|(sAMAccountName=svc-*)(description=*service*))(!(userPassword=*)))",
+    },
+    {
       name: "[OID] RFC caseExactMatch",
       description: "Uses a named matching rule from RFC 4517. The same rule is also known by OID 2.5.13.5.",
       filter: "(&(objectClass=person)(cn:caseExactMatch:=Alice Smith))",
@@ -1069,12 +1141,22 @@
     },
     {
       name: "[OID] AD bitwise AND",
-      description: "Active Directory bitwise matching rule. This example checks the security-enabled groupType flag.",
+      description: "Active Directory bitwise matching rule. This is shown as groupType bitwise AND SECURITY_ENABLED.",
       filter: "(&(objectCategory=group)(groupType:1.2.840.113556.1.4.803:=2147483648))",
     },
     {
+      name: "[OID] AD disabled accounts",
+      description: "Active Directory userAccountControl bitwise rule. The value 2 is shown as ACCOUNTDISABLE.",
+      filter: "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2))",
+    },
+    {
+      name: "[OID] AD enabled service accounts",
+      description: "Combines SPN presence with NOT disabled-account bitwise matching. More realistic and a little harder to read.",
+      filter: "(&(objectCategory=person)(objectClass=user)(servicePrincipalName=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))",
+    },
+    {
       name: "[OID] AD nested group chain",
-      description: "Active Directory recursive membership matching rule. Powerful, but can be expensive without a narrow search base.",
+      description: "Active Directory recursive membership matching rule. This is shown as memberOf recursively contains the target DN.",
       filter: "(&(objectClass=user)(memberOf:1.2.840.113556.1.4.1941:=CN=Admins,OU=Groups,DC=example,DC=com))",
     },
     {
@@ -1088,6 +1170,7 @@
     parseFilter: parseFilter,
     analyzeFilter: analyzeFilter,
     createFilterGraph: createFilterGraph,
+    formatNodeLabel: nodeLabel,
     renderMermaid: renderMermaid,
     summarizeDiagnostics: summarizeDiagnostics,
     samples: SAMPLE_FILTERS,

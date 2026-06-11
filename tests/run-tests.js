@@ -64,6 +64,7 @@ assert.equal(hasRule(sensitiveDiagnostics, "sensitive-attribute"), true);
 
 const oidDiagnostics = core.analyzeFilter(parseOk("(groupType:1.2.840.113556.1.4.803:=2147483648)"));
 assert.equal(hasRule(oidDiagnostics, "known-matching-rule"), true);
+assert.equal(oidDiagnostics.some((diagnostic) => diagnostic.message.includes("SECURITY_ENABLED")), true);
 
 const unknownOidDiagnostics = core.analyzeFilter(parseOk("(cn:1.2.3.4.5:=alice)"));
 assert.equal(hasRule(unknownOidDiagnostics, "unknown-matching-rule-oid"), true);
@@ -82,5 +83,16 @@ assert.match(mermaid, /objectClass = person/);
 assert.match(mermaid, /classDef normal fill:#15181e/);
 assert.match(mermaid, /classDef warning fill:#ffcf25/);
 assert.match(mermaid, /classDef danger fill:#e62b1e/);
+
+const bitwiseMermaid = core.renderMermaid(oidExtensible, oidDiagnostics);
+assert.match(bitwiseMermaid, /groupType bitwise AND SECURITY_ENABLED/);
+
+const disabledAst = parseOk("(userAccountControl:1.2.840.113556.1.4.803:=2)");
+const disabledMermaid = core.renderMermaid(disabledAst, core.analyzeFilter(disabledAst));
+assert.match(disabledMermaid, /userAccountControl bitwise AND ACCOUNTDISABLE/);
+
+const inChainAst = parseOk("(memberOf:1.2.840.113556.1.4.1941:=CN=Admins,OU=Groups,DC=example,DC=com)");
+const inChainMermaid = core.renderMermaid(inChainAst, core.analyzeFilter(inChainAst));
+assert.match(inChainMermaid, /memberOf recursively contains/);
 
 console.log("All LDAP query visualizer tests passed.");
